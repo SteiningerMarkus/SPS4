@@ -2,22 +2,19 @@
 
 import os
 import sys
-import time
 
 from ev3dev2.motor import LargeMotor, MediumMotor, MoveTank, SpeedPercent, OUTPUT_A, OUTPUT_B, OUTPUT_D
 from ev3dev2.sensor import INPUT_1, INPUT_2, INPUT_3, INPUT_4
 from ev3dev2.sensor.lego import LightSensor, ColorSensor, InfraredSensor, UltrasonicSensor
-from ev3dev2.led import Leds
-from ev3dev2.port import LegoPort
 from ev3dev2.button import Button
 
 # constants
 
-DO_LOGGING = True
+DO_BRICK_LOGGING = True
 BALLOONS_TO_POP = 1
 
 INFRARED_EDGE_BREAKPOINT = 20
-ULTRASONIC_EDGE_BREAKPOINT = 100
+ULTRASONIC_EDGE_BREAKPOINT = 10
 LIGHT_WALL_BREAKPOINT = 15
 
 DIR_RIGHT = 0
@@ -54,7 +51,7 @@ needle = MediumMotor(OUTPUT_D)
 # functions
 
 def log(*args, **kwargs):
-    if (DO_LOGGING):
+    if DO_BRICK_LOGGING:
         print(*args, **kwargs)
 
 def logVS(*args, **kwargs):
@@ -64,7 +61,7 @@ def isOnEdgeRight():
     return sensorInfraredRight.proximity > INFRARED_EDGE_BREAKPOINT
 
 def isOnWallLeft():
-    return sensorUltrasonicLeft.distance_centimeters_continuous > ULTRASONIC_EDGE_BREAKPOINT
+    return sensorUltrasonicLeft.distance_centimeters_continuous < ULTRASONIC_EDGE_BREAKPOINT
 
 def isInFrontOfWall():
     return sensorLightBottom.reflected_light_intensity > LIGHT_WALL_BREAKPOINT
@@ -120,14 +117,20 @@ def colorToString(value):
     return 'invalid'
 
 def run():
+    log("ready")
+    log("press any button to start ...")
+
+    while not Button.any():
+        ''
+
     log("start")
 
     ownColor = COLOR_NONE
+    drive()
     while ownColor == COLOR_NONE:
-        engine.on_for_degrees(FORWARD, FORWARD, 10)
         ownColor = getFacingColor()
-
-    log("color: " + colorToString(ownColor))
+    stop()
+    log("set color to " + colorToString(ownColor))
 
     # turn right
     engine.on_for_seconds(BACK, BACK, T_BACK)
@@ -148,21 +151,21 @@ def run():
         step(stepDir)
         log("wall reached")
         color = getFacingColor()
-        log("seeing " + colorToString(color))
+        log("detecting " + colorToString(color) + " balloon")
         if color == COLOR_WHITE and poppedBalloons >= BALLOONS_TO_POP:
-            log("pop white")
+            log("pop white balloon")
             popBalloon()
             break
         if color == ownColor:
             poppedBalloons += 1
-            log("pop nr " + str(poppedBalloons))
+            log("pop balloon nr " + str(poppedBalloons))
             popBalloon()
         if isOnEdgeRight():
-            log("reverse dir")
+            log("change direction to left")
             stepDir = DIR_LEFT
-        #if isOnWallLeft:
-        #    log("reverse dir")
-        #    stepDir = DIR_RIGHT
+        if isOnWallLeft:
+            log("change direction to right")
+            stepDir = DIR_RIGHT
     log("end")
 
 def main():
